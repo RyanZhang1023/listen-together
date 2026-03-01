@@ -42,6 +42,24 @@
             });
         }
 
+        function searchSong() {
+            const query = document.getElementById("searchInput").value;
+            fetch(`https://itunes.apple.com/search?term=${query}&media=music`)
+                .then(res => res.json())
+                .then(data => {
+                    const results = document.getElementById("searchResults");
+                    results.innerHTML = "";
+                    data.results.slice(0, 5).forEach(song => {
+                        const li = document.createElement("li");
+                        li.innerHTML = `
+                            ${song.trackName} - ${song.artistName}
+                            <button onclick='addSong(${JSON.stringify(song)})'>Add</button>
+                        `;
+                        results.appendChild(li);
+                    });
+                });
+        }
+
         // Load current song into audio element
         function loadCurrentSong() {
             if (playlist.length === 0) {
@@ -61,6 +79,12 @@
         }
         function pauseSong() {
             socket.emit("pause", audio.currentTime);
+        }
+
+        function addSong(song) {
+            if (song.previewUrl) {
+                socket.emit("addSong", song);
+            }
         }
 
         // Play next song
