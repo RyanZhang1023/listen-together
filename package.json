@@ -1,3 +1,13 @@
-"scripts": {
-  "start": "node server.js"
+{
+  "name": "listen-together",
+  "version": "1.0.0",
+  "description": "Synchronized listen together app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
 }
