@@ -94,11 +94,21 @@
             socket.emit("next");
         };
 
-        // Socket handlers
         socket.on("updatePlaylist", (updated) => {
+            // Preserve the current song if still in the updated playlist
+            const currentSongId = playlist[currentIndex]?.trackId; // unique id
             playlist = updated;
             renderPlaylist();
-            if (currentIndex >= playlist.length) currentIndex = 0;
+
+            // Find new index of the current song in updated playlist
+            const newIndex = playlist.findIndex(s => s.trackId === currentSongId);
+            if (newIndex !== -1) {
+                currentIndex = newIndex; // keep playing the same song
+            } else {
+                // Current song deleted or playlist empty, reset
+                currentIndex = 0;
+            }
+
             loadCurrentSong();
         });
 
