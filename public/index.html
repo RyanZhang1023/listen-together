@@ -25,8 +25,9 @@
         const audio = document.getElementById("audio");
         let playlist = [];
         let currentIndex = 0;
+        let mode = "ordered"; // synced with server
 
-        // Renders playlist UI
+        // --- Render playlist ---
         function renderPlaylist() {
             const ul = document.getElementById("playlist");
             ul.innerHTML = "";
@@ -42,8 +43,13 @@
             });
         }
 
-        function deleteSong(index) { socket.emit("deleteSong", index); } function moveUp(index) { if (index > 0) { socket.emit("moveSong", { from: index, to: index - 1 }); } } function moveDown(index) { if (index < playlist.length - 1) { socket.emit("moveSong", { from: index, to: index + 1 }); } } function toggleMode() { socket.emit("toggleMode"); }
+        // --- Playlist controls ---
+        function deleteSong(index) { socket.emit("deleteSong", index); }
+        function moveUp(index) { if (index > 0) socket.emit("moveSong", { from: index, to: index - 1 }); }
+        function moveDown(index) { if (index < playlist.length - 1) socket.emit("moveSong", { from: index, to: index + 1 }); }
+        function toggleMode() { socket.emit("toggleMode"); }
 
+        // --- Search songs ---
         function searchSong() {
             const query = document.getElementById("searchInput").value;
             fetch(`https://itunes.apple.com/search?term=${query}&media=music`)
@@ -55,68 +61,62 @@
                         const li = document.createElement("li");
                         li.innerHTML = `
                             ${song.trackName} - ${song.artistName}
-                            <button onclick='addSong(${JSON.stringify(song)})'>Add</button>
+                            <button onclick='addSong(${encodeURIComponent(JSON.stringify(song))})'>Add</button>
                         `;
                         results.appendChild(li);
                     });
                 });
         }
 
-        // Load current song into audio element
+        // --- Add song safely ---
+        function addSong(songStr) {
+            const song = JSON.parse(decodeURIComponent(songStr));
+            if (song.previewUrl) socket.emit("addSong", song);
+        }
+
+        // --- Load current song into audio ---
         function loadCurrentSong() {
-            if (playlist.length === 0) {
+            if (!playlist[currentIndex]?.previewUrl) {
                 audio.src = "";
                 return;
             }
-            if (!playlist[currentIndex]?.previewUrl) return;
-
             audio.src = playlist[currentIndex].previewUrl;
-            audio.load(); // Important: ensures the audio is fully loaded
+            audio.load();
         }
 
-        // Play/pause controls
-        function playSong() {
-            if (playlist.length === 0) return;
-            socket.emit("play", audio.currentTime);
-        }
-        function pauseSong() {
-            socket.emit("pause", audio.currentTime);
-        }
+        // --- Play/pause ---
+        function playSong() { if (playlist.length === 0) return; socket.emit("play", audio.currentTime); }
+        function pauseSong() { socket.emit("pause", audio.currentTime); }
 
-        function addSong(song) {
-            if (song.previewUrl) {
-                socket.emit("addSong", song);
-            }
-        }
-
-        // Play next song
+        // --- Handle audio end ---
         audio.onended = () => {
-            socket.emit("next");
+            if (playlist.length === 0) return;
+            const nextIndex = mode === "ordered"
+                ? (currentIndex + 1) % playlist.length
+                : Math.floor(Math.random() * playlist.length);
+            socket.emit("next", nextIndex);
         };
 
+        // --- Socket events ---
         socket.on("updatePlaylist", (updated) => {
-            // Preserve the current song if still in the updated playlist
-            const currentSongId = playlist[currentIndex]?.trackId; // unique id
+            const currentSongId = playlist[currentIndex]?.trackId;
             playlist = updated;
             renderPlaylist();
 
-            // Find new index of the current song in updated playlist
             const newIndex = playlist.findIndex(s => s.trackId === currentSongId);
-            if (newIndex !== -1) {
-                currentIndex = newIndex; // keep playing the same song
-            } else {
-                // Current song deleted or playlist empty, reset
-                currentIndex = 0;
-            }
+            currentIndex = newIndex !== -1 ? newIndex : 0;
 
             loadCurrentSong();
+            if (!audio.paused) audio.play().catch(() => {});
         });
 
         socket.on("syncState", (state) => {
             playlist = state.playlist;
             currentIndex = state.currentIndex;
+            mode = state.mode;
             renderPlaylist();
             loadCurrentSong();
+            if (state.isPlaying) audio.play().catch(() => {});
         });
 
         socket.on("play", (time) => {
@@ -132,12 +132,12 @@
         socket.on("next", (index) => {
             if (playlist.length === 0) return;
             currentIndex = index;
-
-            // Safety: clamp index
-            if (!playlist[currentIndex]) currentIndex = 0;
-
             loadCurrentSong();
             audio.play().catch(() => {});
+        });
+
+        socket.on("updateMode", (newMode) => {
+            mode = newMode;
         });
     </script>
 </body>

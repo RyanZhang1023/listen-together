@@ -12,15 +12,14 @@ let playlist = [];
 let currentIndex = 0;
 let isPlaying = false;
 let currentTime = 0;
-let mode = "ordered"; // or "random"
+let mode = "ordered"; // "ordered" or "random"
 
+// Get current song based on mode
 function getCurrentSong() {
     if (playlist.length === 0) return null;
-
     if (mode === "random") {
         currentIndex = Math.floor(Math.random() * playlist.length);
     }
-
     return playlist[currentIndex];
 }
 
@@ -43,6 +42,8 @@ io.on("connection", (socket) => {
 
     socket.on("deleteSong", (index) => {
         playlist.splice(index, 1);
+        // Ensure currentIndex is within bounds
+        if (currentIndex >= playlist.length) currentIndex = playlist.length - 1;
         io.emit("updatePlaylist", playlist);
     });
 
@@ -69,13 +70,16 @@ io.on("connection", (socket) => {
         io.emit("pause", time);
     });
 
-    socket.on("next", () => {
+    socket.on("next", (nextIndex) => {
         if (playlist.length === 0) return;
 
-        if (mode === "ordered") {
-            currentIndex = (currentIndex + 1) % playlist.length;
+        if (typeof nextIndex === "number" && playlist[nextIndex]) {
+            currentIndex = nextIndex;
         } else {
-            currentIndex = Math.floor(Math.random() * playlist.length);
+            // fallback in case client doesn't send index
+            currentIndex = mode === "ordered"
+                ? (currentIndex + 1) % playlist.length
+                : Math.floor(Math.random() * playlist.length);
         }
 
         io.emit("next", currentIndex);
