@@ -61,18 +61,14 @@
                         const li = document.createElement("li");
                         li.innerHTML = `
                             ${song.trackName} - ${song.artistName}
-                            <button onclick='addSong(${encodeURIComponent(JSON.stringify(song))})'>Add</button>
+                            <button onclick='addSong(${JSON.stringify(song)})'>Add</button>
                         `;
                         results.appendChild(li);
                     });
                 });
         }
 
-        // --- Add song safely ---
-        function addSong(songStr) {
-            const song = JSON.parse(decodeURIComponent(songStr));
-            if (song.previewUrl) socket.emit("addSong", song);
-        }
+        function addSong(song) { if (song.previewUrl) { socket.emit("addSong", song); } }
 
         // --- Load current song into audio ---
         function loadCurrentSong() {
