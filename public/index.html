@@ -120,7 +120,7 @@
         socket.on("next", (index) => {
             currentIndex = index;
             loadCurrentSong();
-            audio.play();
+            audio.play().catch(() => {}); // prevent browser autoplay errors
         });
 
         function playSong() {
@@ -139,7 +139,21 @@
 
         function loadCurrentSong() {
             if (playlist.length === 0) return;
-            audio.src = playlist[currentIndex].previewUrl;
+
+            const song = playlist[currentIndex];
+            if (!song || !song.previewUrl) return;
+
+            audio.src = song.previewUrl;
+            audio.load(); // Important!
+
+            // Remove previous listeners to avoid multiple triggers
+            audio.onended = null;
+
+            // Attach ended listener AFTER setting src
+            audio.onended = () => {
+                console.log("Song ended detected!");
+                socket.emit("next");
+            };
         }
 
     </script>

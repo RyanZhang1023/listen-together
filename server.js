@@ -74,8 +74,6 @@ io.on("connection", (socket) => {
 
         if (mode === "ordered") {
             currentIndex = (currentIndex + 1) % playlist.length;
-            console.log("current index: " + currentIndex)
-            console.log("length: " + playlist.length)
         } else {
             currentIndex = Math.floor(Math.random() * playlist.length);
         }
