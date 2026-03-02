@@ -46,7 +46,8 @@ app.get("/api/search", async (req, res) => {
 
 app.get("/api/songurl", async (req, res) => {
   const songmid = req.query.songmid;
-  if (!songmid) return res.json({});
+  console.log(songmid);
+  //if (!songmid) return res.json({});
 
   try {
     const url = await getMusicURL(songmid, "320");
