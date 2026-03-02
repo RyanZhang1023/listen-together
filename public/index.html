@@ -62,6 +62,7 @@
                     data.forEach(song => {
 
                         const songName = song.songname || song.name || "Unknown Title";
+                        const songMid = song.mid || song.songmid;
                         const artists = song.singer
                             ? song.singer.map(s => s.name).join(", ")
                             : "Unknown Artist";
@@ -74,10 +75,10 @@
 
                         btn.addEventListener("click", () => {
                             socket.emit("addSong", {
-                                songmid: song.songmid,
+                                songmid: songMid,
                                 trackName: songName,
                                 artistName: artists,
-                                previewUrl: `/api/stream?songmid=${song.songmid}`
+                                previewUrl: `/api/stream?songmid=${songMid}`
                             });
                         });
 
