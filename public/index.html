@@ -55,26 +55,12 @@
             const query = document.getElementById("searchInput").value;
 
             fetch(`/api/search?keyword=${encodeURIComponent(query)}`)
-                .then(res => {
-                    console.log("Response status:", res.status);           // ← very important
-                    console.log("Content-Type:", res.headers.get("content-type"));
-
-                    if (!res.ok) {
-                        throw new Error(`HTTP error ${res.status}`);
-                    }
-
-                    if (!res.headers.get("content-type")?.includes("application/json")) {
-                        console.error("Response is NOT JSON. Raw content above ↑");
-                        throw new Error("Not JSON");
-                    }
-                    //const text = await res.text();
-                    //console.log("Raw response body:", text);
-                    // Only now try to parse
-                    const data = JSON.parse(res.text());
+                .then(res => res.json())
+                .then(data => {
                     const results = document.getElementById("searchResults");
                     results.innerHTML = "";
-
-                    data.forEach(song => {
+                    const songs = data?.data?.song?.list || data || [];
+                    songs.forEach(song => {
 
                         const songName = song.songname || song.name || "Unknown Title";
                         const songMid = song.songmid;
