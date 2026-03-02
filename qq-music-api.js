@@ -13,7 +13,7 @@
 // quality: 歌曲品质（字符串），有 m4a、128、320（默认）可选，其中 128、320 为 MP3 格式，默认为 320
 
 export let getMusicURL = async (songmid, quality = "320", origin = false) => {
-  return await fetch("https://u6.y.qq.com/cgi-bin/musics.fcg", {
+  return await fetch("https://u.y.qq.com/cgi-bin/musicu.fcg", {
     headers: {
       accept: "application/json, text/plain, */*",
       "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
@@ -45,7 +45,7 @@ export let getMusicURL = async (songmid, quality = "320", origin = false) => {
     .then((data) => {
       console.log(data)
       if (origin) return data;
-      else return data.req_0.data.sip[0] + data.req_0.data.midurlinfo[0].purl;
+      else return data.req_1.data.sip[0] + data.req_1.data.midurlinfo[0].purl;
     })
     .catch((err) => {
       console.log(err);
