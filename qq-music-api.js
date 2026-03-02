@@ -165,7 +165,7 @@ export let searchWithKeyword = async (
               "Sec-Fetch-Site": "same-origin",
             },
             body: '{"comm":{"ct":"19","cv":"1859","uin":"0"},"req":{"method":"DoSearchForQQMusicDesktop","module":"music.search.SearchCgiService"',
-            method: "POST",
+            method: "GET",
             mode: "cors",
         });
 
