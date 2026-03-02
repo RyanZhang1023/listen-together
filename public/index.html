@@ -21,6 +21,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        const API_BASE = "https://qqmusic-api.onrender.com:3001"; // Replace with your Render Koa API URL
         const socket = io();
         const audio = document.getElementById("audio");
         let playlist = [];
@@ -53,7 +54,7 @@
         function searchSong() {
             const query = document.getElementById("searchInput").value;
 
-            fetch(`/api/search?keyword=${encodeURIComponent(query)}`)
+            fetch(`${API_BASE}/search?keyword=${encodeURIComponent(query)}`)
                 .then(res => res.json())
                 .then(data => {
                     const results = document.getElementById("searchResults");
@@ -62,7 +63,7 @@
                     data.forEach(song => {
 
                         const songName = song.songname || song.name || "Unknown Title";
-                        const songMid = song.mid || song.songmid;
+                        const songMid = song.songmid;
                         const artists = song.singer
                             ? song.singer.map(s => s.name).join(", ")
                             : "Unknown Artist";
@@ -78,7 +79,7 @@
                                 songmid: songMid,
                                 trackName: songName,
                                 artistName: artists,
-                                previewUrl: `/api/stream?songmid=${songMid}`
+                                previewUrl: `${API_BASE}/getMusicUrl?songmid=${songMid}`
                             });
                         });
 
