@@ -67,7 +67,7 @@
                         console.error("Response is NOT JSON. Raw content above ↑");
                         throw new Error("Not JSON");
                     }
-
+                    const text = res.text();
                     // Only now try to parse
                     const data = JSON.parse(text);
                     const results = document.getElementById("searchResults");
