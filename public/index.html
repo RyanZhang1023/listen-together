@@ -73,7 +73,7 @@
                     songs.forEach(song => {
 
                         const songName = song.songname || song.name || "Unknown Title";
-                        const songMid = song.songmid;
+                        const songMid = song.mid;
                         const artists = song.singer
                             ? song.singer.map(s => s.name).join(", ")
                             : "Unknown Artist";
