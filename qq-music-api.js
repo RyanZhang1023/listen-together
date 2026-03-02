@@ -90,6 +90,7 @@ export let getSongListName = async (categoryID, origin = false) => {
 // searchType: 搜索结果类型（默认为 0），0 为歌曲，2 为专辑，3 为歌单，4 为 MV，7 为歌词，8 为用户
 // resultNum: （每页）结果数量（默认为 50）
 // pageNum: 页面序号（不是页数，默认为 1）
+/*
 export let searchWithKeyword = async (
   keyword,
   searchType = 0,
@@ -98,18 +99,8 @@ export let searchWithKeyword = async (
   origin = false
 ) => {
   return await fetch("https://u.y.qq.com/cgi-bin/musicu.fcg", {
-    credentials: "include",
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
-      Accept: "application/json, text/plain, */*",
-      "Accept-Language":
-        "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
-      "Content-Type": "application/json;charset=utf-8",
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-origin",
-    },
+
+
     body: '{"comm":{"ct":"19","cv":"1859","uin":"0"},"req":{"method":"DoSearchForQQMusicDesktop","module":"music.search.SearchCgiService","param":{"grp":1,"num_per_page":RESULTNUM,"page_num":PAGENUM,"query":"KEYWORD","search_type":SEARCHTYPE}}}'
       .replaceAll("KEYWORD", keyword)
       .replaceAll("RESULTNUM", resultNum)
@@ -142,6 +133,47 @@ export let searchWithKeyword = async (
     .catch((err) => {
       console.log(err);
     });
+};
+*/
+export let searchWithKeyword = async (
+    keyword,
+    searchType = 0,
+    resultNum = 50,
+    pageNum = 1
+) => {
+    try {
+        const params = new URLSearchParams({
+            p: pageNum,
+            n: resultNum,
+            w: keyword,
+            format: "json",
+        });
+
+        const url = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?${params.toString()}";
+
+        const response = await fetch(url, {
+            credentials: "include",
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+              Accept: "application/json, text/plain, */*",
+              "Accept-Language":
+                "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
+              "Content-Type": "application/json;charset=utf-8",
+              "Sec-Fetch-Dest": "empty",
+              "Sec-Fetch-Mode": "cors",
+              "Sec-Fetch-Site": "same-origin",
+            },
+        });
+
+        const data = await response.json();
+
+        return data
+
+    } catch (error) {
+        console.error("Search QQ Music error:", error);
+        return [];
+    }
 };
 
 // 获取歌曲歌词

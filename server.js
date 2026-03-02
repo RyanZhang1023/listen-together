@@ -2,6 +2,10 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 
+import {
+  searchWithKeyword,
+  getMusicURL
+} from "./qq-music-api.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -23,6 +27,34 @@ function getCurrentSong() {
     }
     return playlist[currentIndex];
 }
+
+app.get("/api/search", async (req, res) => {
+  const keyword = req.query.keyword;
+  if (!keyword) return res.json([]);
+
+  try {
+    const result = await searchWithKeyword(keyword, 0, 10, 1);
+    res.json(result.list); // QQ returns { list: [...] }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
+app.get("/api/songurl", async (req, res) => {
+  const songmid = req.query.songmid;
+  if (!songmid) return res.json({});
+
+  try {
+    const url = await getMusicURL(songmid, "320");
+    console.log(url);
+    res.json({ url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to get URL" });
+  }
+});
+
 
 io.on("connection", (socket) => {
     console.log("User connected");

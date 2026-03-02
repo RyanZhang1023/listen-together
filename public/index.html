@@ -54,7 +54,7 @@
         function searchSong() {
             const query = document.getElementById("searchInput").value;
 
-            fetch(`${API_BASE}/search?keyword=${encodeURIComponent(query)}`)
+            fetch(`/api/search?keyword=${encodeURIComponent(query)}`)
                 .then(res => res.json())
                 .then(data => {
                     const results = document.getElementById("searchResults");
@@ -79,7 +79,7 @@
                                 songmid: songMid,
                                 trackName: songName,
                                 artistName: artists,
-                                previewUrl: `${API_BASE}/getMusicUrl?songmid=${songMid}`
+                                previewUrl: `/api/getMusicUrl?songmid=${songMid}`
                             });
                         });
 
