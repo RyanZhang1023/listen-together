@@ -52,9 +52,8 @@
             }
 
             if (isPlaying) {
-                setTimeout(() => {
-                    audio.play().catch(e => console.warn("Auto-resume failed:", e));
-                }, 400);
+                audio.currentTime = state.currentTime;
+                audio.play().catch(() => {});
             }
         });
 
@@ -170,11 +169,6 @@
             document.getElementById('activation-overlay').classList.remove('show');
             document.removeEventListener('click', firstGesture);
             socket.emit("resync");
-
-            // Optional: immediately try to resume if room is playing
-            if (isPlaying) {
-                audio.play().catch(()=>{});
-            }
         }, {once: true});
 
         document.addEventListener('touchstart', function firstGesture() {
@@ -182,10 +176,6 @@
             document.getElementById('activation-overlay').classList.remove('show');
             document.removeEventListener('click', firstGesture);
             socket.emit("resync");
-            // Optional: immediately try to resume if room is playing
-            if (isPlaying) {
-                audio.play().catch(()=>{});
-            }
         }, {once: true});
 
         // --- Socket events ---
