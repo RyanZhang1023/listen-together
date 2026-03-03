@@ -28,6 +28,16 @@
         let currentIndex = 0;
         let mode = "ordered"; // synced with server
 
+        socket.on("syncState", (state) => {
+            console.log("Received syncState →", state);
+            playlist = state.playlist;
+            currentIndex = state.currentIndex;
+            mode = state.mode;
+            renderPlaylist();
+            loadCurrentSong();
+            if (state.isPlaying) audio.play().catch(() => {});
+        });
+
         // --- Render playlist ---
         function renderPlaylist() {
             const ul = document.getElementById("playlist");
@@ -148,30 +158,6 @@
 
             loadCurrentSong();
             if (!audio.paused) audio.play().catch(() => {});
-        });
-
-        socket.on("syncState", (state) => {
-            playlist = state.playlist;
-            currentIndex = state.currentIndex;
-            mode = state.mode;
-            renderPlaylist();
-
-            loadCurrentSong();   // sets audio.src
-
-            // ← Add this block
-            if (state.isPlaying && playlist.length > 0 && currentIndex < playlist.length) {
-                // Small delay helps browser finish loading src
-                setTimeout(() => {
-                    audio.play()
-                        .then(() => {
-                            console.log("Sync play successful");
-                        })
-                        .catch(err => {
-                            console.warn("Auto-play blocked on sync:", err);
-                            // Optional: show UI message "Click play to start"
-                        });
-                }, 300);   // 200–500 ms delay often helps
-            }
         });
 
         socket.on("play", (time) => {
