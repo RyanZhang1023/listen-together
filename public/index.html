@@ -52,12 +52,9 @@
             }
 
             if (state.isPlaying) {
-                console.log("sync playing");
                 setTimeout(() => {
                     audio.currentTime = state.currentTime;
-                    audio.play().catch(e => {
-                        console.warn("Auto-play after sync failed:", e);
-                    });
+                    socket.emit("pause", state.currentTime);
                 }, 300);
             }
         });
