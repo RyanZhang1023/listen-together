@@ -52,8 +52,7 @@
             }
 
             if (isPlaying) {
-                audio.currentTime = state.currentTime;
-                audio.play().catch(() => {});
+                socket.emit("play", state.currentTime);
             }
         });
 
