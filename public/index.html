@@ -51,10 +51,14 @@
                 overlay.classList.remove('show');
             }
 
-            if (isPlaying) {
+            if (state.isPlaying) {
                 console.log("sync playing");
-                socket.emit("play", state.currentTime);
-                socket.emit("play", state.currentTime);
+                setTimeout(() => {
+                    audio.currentTime = currentTime;
+                    audio.play().catch(e => {
+                        console.warn("Auto-play after sync failed:", e);
+                    });
+                }, 300);
             }
         });
 
