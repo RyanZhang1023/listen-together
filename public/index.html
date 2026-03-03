@@ -18,7 +18,10 @@
     <audio id="audio" controls></audio>
     <button onclick="playSong()">Play</button>
     <button onclick="pauseSong()">Pause</button>
-
+        <!-- Add this somewhere in body, hidden by default -->
+    <div id="activation-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); color:black; font-size:2rem; justify-content:center; align-items:center; z-index:9999;">
+      <div>Tap anywhere or press Play to enable sound</div>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const API_BASE = "https://qqmusic-api.onrender.com"; // Replace with your Render Koa API URL
@@ -27,6 +30,7 @@
         let playlist = [];
         let currentIndex = 0;
         let mode = "ordered"; // synced with server
+        let hasUserGestured = false;
 
         socket.on("syncState", (state) => {
             console.log("Received syncState →", state);
@@ -35,6 +39,9 @@
             mode = state.mode;
             renderPlaylist();
             loadCurrentSong();
+            if (state.isPlaying && !hasUserGestured) {
+                document.getElementById('activation-overlay').style.display = 'flex';
+            }
             if (state.isPlaying) audio.play().catch(() => {});
         });
 
@@ -123,7 +130,6 @@
 
         // --- Load current song into audio ---
         function loadCurrentSong() {
-            console.log(playlist[currentIndex].previewUrl);
             if (!playlist[currentIndex]?.previewUrl) {
                 audio.src = "";
                 return;
@@ -144,6 +150,18 @@
                 : Math.floor(Math.random() * playlist.length);
             socket.emit("next", nextIndex);
         };
+
+        // On first real user interaction (click anywhere or play button)
+        document.addEventListener('click', function firstGesture() {
+            hasUserGestured = true;
+            document.getElementById('activation-overlay').style.display = 'none';
+            document.removeEventListener('click', firstGesture);
+
+            // Optional: immediately try to resume if room is playing
+            if (isPlaying) {
+                audio.play().catch(()=>{});
+            }
+        }, {once: true});
 
         // --- Socket events ---
         socket.on("updatePlaylist", (updated) => {
