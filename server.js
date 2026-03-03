@@ -74,6 +74,18 @@ io.on("connection", (socket) => {
         mode
     });
 
+    socket.on("resync", () => {
+        console.log(`Client ${socket.id} requested resync`);
+
+        socket.emit("syncState", {
+            playlist,
+            currentIndex,
+            isPlaying,
+            currentTime,
+            mode
+        });
+    });
+
     socket.on("addSong", (song) => {
         playlist.push(song);
         io.emit("updatePlaylist", playlist);

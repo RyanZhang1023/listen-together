@@ -169,6 +169,7 @@
             hasUserGestured = true;
             document.getElementById('activation-overlay').classList.remove('show');
             document.removeEventListener('click', firstGesture);
+            socket.emit("resync");
 
             // Optional: immediately try to resume if room is playing
             if (isPlaying) {
@@ -180,7 +181,7 @@
             hasUserGestured = true;
             document.getElementById('activation-overlay').classList.remove('show');
             document.removeEventListener('click', firstGesture);
-
+            socket.emit("resync");
             // Optional: immediately try to resume if room is playing
             if (isPlaying) {
                 audio.play().catch(()=>{});
