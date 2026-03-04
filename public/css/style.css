@@ -350,29 +350,28 @@ h1 {
 
 /* Responsive */
 @media (max-width: 768px) {
-  header {
-    flex-wrap: wrap;                  /* allow wrapping if needed */
-    gap: 10px;
-    justify-content: space-between;
+  .main-content {
+    flex-direction: column !important;
+    gap: 16px;
   }
 
-  h1 {
-    font-size: 1.6rem;                /* quite small title */
-    margin: 0;
+  .users-panel {
+    width: 100% !important;
+    max-height: 140px;               /* limit height so it doesn't eat too much space */
+    overflow-y: auto;
+    border-radius: 12px;
+    background: #1a1a1a;
+    padding: 12px;
   }
 
-  .search-bar {
-    flex: 1 1 auto;
-    max-width: 65%;                   /* ← key: limit search bar width */
+  .playlist-panel {
+    flex: 1;
+    width: 100% !important;
   }
 
-  .search-bar input {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-  }
-
-  .search-bar button {
-    padding: 8px 12px;
-    min-width: 44px;                  /* smaller button */
+  /* Make user list more compact */
+  #usersList li {
+    font-size: 0.95rem;
+    padding: 6px 0;
   }
 }
