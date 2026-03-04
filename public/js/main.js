@@ -79,33 +79,45 @@ socket.on("next", (index) => {
 // ── Render functions ────────────────────────────────────
 
 function renderPlaylist() {
-  playlistUl.innerHTML = "";
-  playlist.forEach((song, i) => {
-    const li = document.createElement("li");
-    li.dataset.index = i;
-    li.innerHTML = `
-      <i class="fas fa-grip-vertical drag-handle"></i>
-      <div class="info">
-        <div class="title">${song.trackName || "Unknown"}</div>
-        <div class="artist">${song.artistName || ""}</div>
-      </div>
-      <span class="duration">${formatTime(song.duration || 0)}</span>
-      <button onclick="deleteSong(${i})"><i class="fas fa-trash"></i></button>
-    `;
-    if (i === currentIndex) li.classList.add("playing");
-    playlistUl.appendChild(li);
-  });
+    playlistUl.innerHTML = "";
 
-  new Sortable(playlistUl, {
-    animation: 150,
-    handle: ".drag-handle",
-    ghostClass: "dragging",
-    onEnd: (evt) => {
-      const { oldIndex, newIndex } = evt;
-      if (oldIndex === newIndex) return;
-      socket.emit("moveSong", { from: oldIndex, to: newIndex });
+    playlist.forEach((song, i) => {
+        const li = document.createElement("li");
+        li.dataset.index = i;
+        li.innerHTML = `
+            <i class="fas fa-grip-vertical drag-handle"></i>
+            <div class="info">
+                <div class="title">${song.trackName || "Unknown"}</div>
+                <div class="artist">${song.artistName || ""}</div>
+            </div>
+            <span class="duration">${formatTime(song.duration || 0)}</span>
+            <button onclick="deleteSong(${i})"><i class="fas fa-trash"></i></button>
+        `;
+        if (i === currentIndex) li.classList.add("playing");
+        playlistUl.appendChild(li);
+    });
+
+    // ── IMPORTANT: Destroy old instance if exists, then create new one ──
+    if (window.playlistSortable) {
+        window.playlistSortable.destroy();
     }
-  });
+
+    window.playlistSortable = new Sortable(playlistUl, {
+        animation: 150,
+        handle: '.drag-handle',           // must match the icon class
+        ghostClass: 'dragging',
+        chosenClass: 'chosen',
+        dragClass: 'dragged',
+        forceFallback: true,              // helps on mobile/touch
+        onEnd: (evt) => {
+            const { oldIndex, newIndex } = evt;
+            if (oldIndex === newIndex) return;
+
+            console.log(`Moved from ${oldIndex} → ${newIndex}`); // debug
+
+            socket.emit("moveSong", { from: oldIndex, to: newIndex });
+        }
+    });
 }
 
 function renderUsers(users) {
@@ -193,14 +205,15 @@ function searchSong() {
       }
 
       songs.forEach(s => {
-        const name = s.songname || "Unknown";
+        const name = s.songname || song.name || "Unknown";
         const mid = s.mid;
         const artists = s.singer?.map(a => a.name).join(", ") || "";
+        const time_public = s.time_public;
 
         const li = document.createElement("li");
         li.innerHTML = `
           <span>${name} – ${artists}</span>
-          <button onclick="addSongFromSearch('${mid}', '${name.replace(/'/g,"\\'")}', '${artists.replace(/'/g,"\\'")}')">Add</button>
+          <button onclick="addSongFromSearch('${mid}', '${name}', '${artists}', '${time_public}')">Add</button>
         `;
         searchResults.appendChild(li);
       });
@@ -210,7 +223,7 @@ function searchSong() {
     .catch(err => console.error(err));
 }
 
-function addSongFromSearch(mid, name, artists) {
+function addSongFromSearch(mid, name, artists, time_public) {
   fetch(`${API_BASE}/getMusicPlay?songmid=${mid}`)
     .then(r => r.json())
     .then(json => {
@@ -221,7 +234,7 @@ function addSongFromSearch(mid, name, artists) {
           trackName: name,
           artistName: artists,
           previewUrl: url,
-          duration: 0
+          duration: time_public
         });
       }
     })
