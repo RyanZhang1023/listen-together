@@ -116,9 +116,6 @@ function renderPlaylist() {
 
             socket.emit("moveSong", { from: oldIndex, to: newIndex });
         }
-        onStart: () => console.log("Drag started"),
-        onMove: () => console.log("onMove called"),
-        onChange: () => console.log("onChange called")
     });
 }
 
