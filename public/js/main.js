@@ -90,7 +90,6 @@ function renderPlaylist() {
                 <div class="title">${song.trackName || "Unknown"}</div>
                 <div class="artist">${song.artistName || ""}</div>
             </div>
-            <span class="duration">${formatTime(song.duration || 0)}</span>
             <button onclick="deleteSong(${i})"><i class="fas fa-trash"></i></button>
         `;
         if (i === currentIndex) li.classList.add("playing");
@@ -208,12 +207,11 @@ function searchSong() {
         const name = s.songname || song.name || "Unknown";
         const mid = s.mid;
         const artists = s.singer?.map(a => a.name).join(", ") || "";
-        const time_public = s.time_public;
 
         const li = document.createElement("li");
         li.innerHTML = `
           <span>${name} – ${artists}</span>
-          <button onclick="addSongFromSearch('${mid}', '${name}', '${artists}', '${time_public}')">Add</button>
+          <button onclick="addSongFromSearch('${mid}', '${name}', '${artists}')">Add</button>
         `;
         searchResults.appendChild(li);
       });
@@ -223,7 +221,7 @@ function searchSong() {
     .catch(err => console.error(err));
 }
 
-function addSongFromSearch(mid, name, artists, time_public) {
+function addSongFromSearch(mid, name, artists) {
   fetch(`${API_BASE}/getMusicPlay?songmid=${mid}`)
     .then(r => r.json())
     .then(json => {
@@ -234,7 +232,6 @@ function addSongFromSearch(mid, name, artists, time_public) {
           trackName: name,
           artistName: artists,
           previewUrl: url,
-          duration: time_public
         });
       }
     })
