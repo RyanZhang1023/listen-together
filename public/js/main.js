@@ -184,6 +184,10 @@ function searchSong() {
       console.log("JSON string version:", JSON.stringify(data, null, 2));
       searchResults.innerHTML = "";
       const songs = data?.data?.song?.list || data || [];
+      console.log("Number of songs found:", songs.length);    // ← MUST see number > 0
+      if (songs.length > 0) {
+        console.log("First song:", songs[0]);               // ← check structure
+      }
       if (songs.length === 0) {
         searchResults.innerHTML = "<p>No results</p>";
       }
