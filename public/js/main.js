@@ -179,8 +179,11 @@ function searchSong() {
   fetch(`/api/search?keyword=${encodeURIComponent(query)}`)
     .then(res => res.json())
     .then(data => {
+      console.log("=== RAW SEARCH RESPONSE FROM SERVER ===");
+      console.log(data);                                 // ← print the whole thing
+      console.log("JSON string version:", JSON.stringify(data, null, 2));
       searchResults.innerHTML = "";
-      const songs = data?.data?.song?.list || [];
+      const songs = data?.data?.song?.list || data || [];
       if (songs.length === 0) {
         searchResults.innerHTML = "<p>No results</p>";
       }
