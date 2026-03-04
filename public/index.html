@@ -1,39 +1,96 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>SYNCED</title>
-    <link rel="stylesheet" type="text/css" href="./css/activation_overlay.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SYNCED</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-    <h2>🎵 SYNCED</h2>
-    <div id="username-setup" style="margin: 20px 0; text-align: center;">
-        <h3>Welcome! What's your name?</h3>
-        <input type="text" id="usernameInput" placeholder="Your name..." maxlength="20" />
-        <button onclick="setUsername()">Join</button>
-    </div>
 
-    <h3>Connected users</h3>
-    <ul id="usersList" style="list-style: none; padding: 0;"></ul>
+  <div class="container">
 
-    <input type="text" id="searchInput" placeholder="Search song..." />
-    <button onclick="searchSong()">Search</button>
-
-    <ul id="searchResults"></ul>
-
-    <h3>Playlist</h3>
-    <button onclick="toggleMode()">Toggle Order/Random</button>
-    <ul id="playlist"></ul>
-
-    <audio id="audio" controls></audio>
-    <button onclick="playSong()">Play</button>
-    <button onclick="pauseSong()">Pause</button>
-
-    <div id="activation-overlay">
-      <div>
-        Tap anywhere on the screen<br>to enable sound
+    <!-- Header + Search -->
+    <header>
+      <h1>SYNCED</h1>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search songs..." />
+        <button onclick="searchSong()"><i class="fas fa-search"></i></button>
       </div>
+    </header>
+
+    <!-- Main content: users + playlist -->
+    <div class="main-content">
+
+      <!-- Left: Connected Users -->
+      <aside class="users-panel">
+        <h3>Connected Users</h3>
+        <ul id="usersList"></ul>
+      </aside>
+
+      <!-- Center: Playlist -->
+      <section class="playlist-panel">
+        <div class="playlist-header">
+          <h2>Playlist</h2>
+        </div>
+
+        <!-- Search results overlay -->
+        <div id="searchResults" class="search-results"></div>
+
+        <ul id="playlist" class="playlist sortable"></ul>
+      </section>
+
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script type="text/javascript" src="./js/main.js"></script>
+
+    <!-- Bottom: Player controls -->
+    <footer class="player-bar">
+      <div class="now-playing">
+        <span id="currentSong">No song selected</span>
+        <span id="currentArtist"></span>
+      </div>
+
+      <div class="controls">
+        <button onclick="prevSong()" title="Previous"><i class="fas fa-backward"></i></button>
+
+        <!-- Single toggle button -->
+        <button id="playPauseBtn" onclick="togglePlayPause()" title="Play/Pause">
+          <i id="playPauseIcon" class="fas fa-play"></i>
+        </button>
+
+        <button onclick="nextSong()" title="Next"><i class="fas fa-forward"></i></button>
+      </div>
+
+      <div class="progress">
+        <span id="currentTime">0:00</span>
+        <input type="range" id="progressBar" min="0" value="0" max="100" step="0.1" />
+        <span id="duration">0:00</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Activation overlay (mobile sound unlock) -->
+  <div id="activation-overlay" class="activation-overlay">
+    <div class="overlay-content">
+      <h2>Welcome to SYNCED</h2>
+      <p>Enter your username to join</p>
+
+      <input
+        type="text"
+        id="usernameInputOverlay"
+        placeholder="Your username..."
+        maxlength="20"
+        autocomplete="off"
+      />
+
+      <button id="joinBtn" onclick="handleJoinFromOverlay()">Join</button>
+
+      <p class="small-hint">This also enables audio playback</p>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js"></script>
+  <script type="text/javascript" src="./js/main.js"></script>
 </body>
 </html>

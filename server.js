@@ -1,5 +1,5 @@
 import express from "express";
-import http from "http";
+import { createServer } from "http";           // ← prefer this style
 import { Server } from "socket.io";
 import cors from "cors";
 
@@ -10,187 +10,160 @@ import {
 
 const app = express();
 app.use(cors());
-const server = http.createServer(app);
-const io = new Server(server);
-// Store connected users: { socket.id → username }
-const connectedUsers = new Map();
-
 app.use(express.static("public"));
 
+const server = createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
+
+// State
 let playlist = [];
 let currentIndex = 0;
 let isPlaying = false;
 let currentTime = 0;
-let mode = "ordered"; // "ordered" or "random"
 
-// Get current song based on mode
-function getCurrentSong() {
-    if (playlist.length === 0) return null;
-    if (mode === "random") {
-        currentIndex = Math.floor(Math.random() * playlist.length);
-    }
-    return playlist[currentIndex];
+// { socket.id → username }
+const connectedUsers = new Map();
+
+function broadcastUserList() {
+  const users = Array.from(connectedUsers.entries()).map(([id, username]) => ({
+    id,
+    username
+  }));
+  io.emit("usersList", users);
 }
 
 app.get("/api/search", async (req, res) => {
-  const keyword = req.query.keyword;
-  if (!keyword) return res.json([]);
+  const keyword = req.query.keyword?.trim();
+  if (!keyword) return res.json({ data: { song: { list: [] } } });
 
   try {
-    console.log(`Searching QQ Music for: "${keyword}"`);
     const songs = await searchWithKeyword(keyword, 0, 10, 1);
     res.json(songs);
-    console.log("QQ returned items count:", songs?.length ?? "no .length");
-    console.log("First item (if any):", songs?.[0] ?? "empty");
   } catch (err) {
-    console.error(err);
+    console.error("Search failed:", err);
     res.status(500).json({ error: "Search failed" });
   }
 });
 
 app.get("/api/songurl", async (req, res) => {
   const songmid = req.query.songmid;
-  console.log(songmid);
-  //if (!songmid) return res.json({});
+  if (!songmid) return res.status(400).json({ error: "Missing songmid" });
 
   try {
     const url = await getMusicURL(songmid, "320");
-    console.log(url);
     res.json({ url });
   } catch (err) {
-    console.error(err);
+    console.error("Get URL failed:", err);
     res.status(500).json({ error: "Failed to get URL" });
   }
 });
 
-
 io.on("connection", (socket) => {
-    console.log("User connected");
+  console.log(`User connected: ${socket.id}`);
 
-    // Send current user list to the newly connected client
-    function broadcastUserList() {
-        const users = Array.from(connectedUsers.entries()).map(([id, username]) => ({
-            id,
-            username
-        }));
-        io.emit("usersList", users);
+  // Send current state (no mode anymore)
+  socket.emit("syncState", {
+    playlist,
+    currentIndex,
+    isPlaying,
+    currentTime: Math.max(0, currentTime || 0),
+    users: Array.from(connectedUsers.entries()).map(([id, username]) => ({ id, username }))
+  });
+
+  // Username
+  socket.on("setUsername", (name) => {
+    const safeName = String(name || "Anonymous").trim().slice(0, 20);
+    connectedUsers.set(socket.id, safeName);
+    io.emit("userJoined", { id: socket.id, username: safeName });
+    broadcastUserList();
+    console.log(`${safeName} joined (${socket.id})`);
+  });
+
+  // Playlist actions
+  socket.on("addSong", (song) => {
+    if (!song?.previewUrl) return;
+    playlist.push(song);
+    io.emit("updatePlaylist", playlist);
+  });
+
+  socket.on("deleteSong", (index) => {
+    const idx = Number(index);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= playlist.length) return;
+
+    playlist.splice(idx, 1);
+    if (currentIndex >= playlist.length) {
+      currentIndex = Math.max(0, playlist.length - 1);
+    }
+    io.emit("updatePlaylist", playlist);
+  });
+
+  socket.on("moveSong", ({ from, to }) => {
+    const f = Number(from);
+    const t = Number(to);
+    if (
+      !Number.isInteger(f) || !Number.isInteger(t) ||
+      f < 0 || f >= playlist.length ||
+      t < 0 || t >= playlist.length
+    ) return;
+
+    const [moved] = playlist.splice(f, 1);
+    playlist.splice(t, 0, moved);
+    io.emit("updatePlaylist", playlist);
+  });
+
+  // Playback
+  socket.on("play", (time) => {
+    const t = Number(time) || 0;
+    currentTime = Math.max(0, t);
+    isPlaying = true;
+    io.emit("play", currentTime);
+  });
+
+  socket.on("pause", (time) => {
+    const t = Number(time) || 0;
+    currentTime = Math.max(0, t);
+    isPlaying = false;
+    io.emit("pause", currentTime);
+  });
+
+  socket.on("next", (nextIndex) => {
+    if (playlist.length === 0) return;
+
+    const idx = Number(nextIndex);
+    if (Number.isInteger(idx) && idx >= 0 && idx < playlist.length) {
+      currentIndex = idx;
+    } else {
+      // Fallback: next in sequence (loop)
+      currentIndex = (currentIndex + 1) % playlist.length;
     }
 
-    // Send current state to new user
-    socket.emit("syncState", {
-        playlist,
-        currentIndex,
-        isPlaying,
-        currentTime,
-        mode
-    });
+    currentTime = 0;
+    io.emit("next", currentIndex);
+  });
 
-    // Also send the list immediately on connection (before username is set)
-    broadcastUserList();  // optional — shows empty or partial list
+  // Optional: clients can report time while playing
+  socket.on("updateTime", (time) => {
+    if (isPlaying) {
+      currentTime = Math.max(0, Number(time) || 0);
+    }
+  });
 
-    socket.on("resync", () => {
-        console.log(`Client ${socket.id} requested resync`);
-
-        socket.emit("syncState", {
-            playlist,
-            currentIndex,
-            isPlaying,
-            currentTime,
-            mode
-        });
-    });
-
-    socket.on("addSong", (song) => {
-        playlist.push(song);
-        io.emit("updatePlaylist", playlist);
-    });
-
-    socket.on("deleteSong", (index) => {
-        playlist.splice(index, 1);
-        // Ensure currentIndex is within bounds
-        if (currentIndex >= playlist.length) currentIndex = Math.max(playlist.length - 1, 0);
-        io.emit("updatePlaylist", playlist);
-    });
-
-    socket.on("moveSong", ({ from, to }) => {
-        const song = playlist.splice(from, 1)[0];
-        playlist.splice(to, 0, song);
-        io.emit("updatePlaylist", playlist);
-    });
-
-    socket.on("toggleMode", () => {
-        mode = mode === "ordered" ? "random" : "ordered";
-        io.emit("updateMode", mode);
-    });
-
-    socket.on("play", (time) => {
-        isPlaying = true;
-        currentTime = time;
-        io.emit("play", time);
-    });
-
-    socket.on("pause", (time) => {
-        isPlaying = false;
-        currentTime = time;
-        io.emit("pause", time);
-    });
-
-    socket.on("next", (nextIndex) => {
-        if (playlist.length === 0) return;
-
-        if (typeof nextIndex === "number" && playlist[nextIndex]) {
-            currentIndex = nextIndex;
-        } else {
-            // fallback in case client doesn't send index
-            currentIndex = mode === "ordered"
-                ? (currentIndex + 1) % playlist.length
-                : Math.floor(Math.random() * playlist.length);
-        }
-
-        io.emit("next", currentIndex);
-    });
-
-    // When client sends their username
-    socket.on("setUsername", (name) => {
-        // Optional: sanitize / limit length
-        const safeName = name.trim().substring(0, 20) || "Anonymous";
-
-        connectedUsers.set(socket.id, safeName);
-
-        // Tell everyone someone joined
-        io.emit("userJoined", { id: socket.id, username: safeName });
-
-        // Send updated list to all
-        broadcastUserList();
-
-        console.log(`${safeName} (${socket.id}) joined`);
-    });
-
-    // Clean up when user disconnects
-    socket.on("disconnect", () => {
-        if (connectedUsers.has(socket.id)) {
-            const name = connectedUsers.get(socket.id);
-            connectedUsers.delete(socket.id);
-
-            io.emit("userLeft", { id: socket.id, username: name });
-            broadcastUserList();
-
-            console.log(`${name} (${socket.id}) left`);
-        }
-        console.log("User disconnected");
-    });
-
-    socket.on("updateTime", (time) => {
-        currentTime = time;
-    });
-
-    socket.on("disconnect", () => {
-        console.log("User disconnected");
-    });
+  // Cleanup
+  socket.on("disconnect", () => {
+    if (connectedUsers.has(socket.id)) {
+      const name = connectedUsers.get(socket.id);
+      connectedUsers.delete(socket.id);
+      io.emit("userLeft", { id: socket.id, username: name });
+      broadcastUserList();
+      console.log(`${name} left (${socket.id})`);
+    }
+    console.log(`User disconnected: ${socket.id}`);
+  });
 });
 
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running → http://localhost:${PORT}`);
 });

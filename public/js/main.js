@@ -1,243 +1,289 @@
-const API_BASE = "https://qqmusic-api.onrender.com"; // Replace with your Render Koa API URL
+
+const API_BASE = "https://qqmusic-api.onrender.com";
 const socket = io();
-const audio = document.getElementById("audio");
+const audio = new Audio();
 let playlist = [];
-let isPlaying = false;
 let currentIndex = 0;
-let mode = "ordered"; // synced with server
+let isPlaying = false;
 let hasUserGestured = false;
-let username = null;
 
-// Called when user clicks "Join"
-function setUsername() {
-    const input = document.getElementById("usernameInput");
-    const name = input.value.trim();
-
-    if (!name) {
-        alert("Please enter a name");
-        return;
-    }
-
-    username = name;
-    socket.emit("setUsername", name);
-
-    // Hide setup UI
-    document.getElementById("username-setup").style.display = "none";
-
-    // Optional: show overlay only after name is set
-    // (you can move the overlay logic here if you want)
-}
-
-// Render connected users list
-function renderUsers(users) {
-    const ul = document.getElementById("usersList");
-    ul.innerHTML = "";
-    users.forEach(user => {
-        const li = document.createElement("li");
-        li.textContent = user.username;
-        // Optional: highlight yourself
-        if (user.id === socket.id) {
-            li.style.fontWeight = "bold";
-            li.textContent += " (you)";
-        }
-        ul.appendChild(li);
-    });
-}
-
-socket.on("syncState", (state) => {
-    console.log("Received syncState →", state);
-    playlist = state.playlist;
-    currentIndex = state.currentIndex;
-    mode = state.mode;
-    renderPlaylist();
-    loadCurrentSong();
-    const overlay = document.getElementById('activation-overlay');
-
-    if (!hasUserGestured){
-        overlay.classList.add('show');
-    } else {
-        overlay.classList.remove('show');
-    }
-
-    if (state.isPlaying) {
-        setTimeout(() => {
-            audio.currentTime = state.currentTime;
-            socket.emit("pause", state.currentTime);
-        }, 300);
-    }
-});
-
-// --- Render playlist ---
-function renderPlaylist() {
-    const ul = document.getElementById("playlist");
-    ul.innerHTML = "";
-    playlist.forEach((song, index) => {
-        const li = document.createElement("li");
-        li.innerHTML = `
-            ${song.trackName} - ${song.artistName}
-            <button onclick="deleteSong(${index})">❌</button>
-            <button onclick="moveUp(${index})">⬆</button>
-            <button onclick="moveDown(${index})">⬇</button>
-        `;
-        ul.appendChild(li);
-    });
-}
-
-// --- Playlist controls ---
-function deleteSong(index) { socket.emit("deleteSong", index); }
-function moveUp(index) { if (index > 0) socket.emit("moveSong", { from: index, to: index - 1 }); }
-function moveDown(index) { if (index < playlist.length - 1) socket.emit("moveSong", { from: index, to: index + 1 }); }
-function toggleMode() { socket.emit("toggleMode"); }
-
-// --- Search songs ---
-function searchSong() {
-    const query = document.getElementById("searchInput").value;
-
-    fetch(`/api/search?keyword=${encodeURIComponent(query)}`)
-        .then(res => res.json())
-        .then(data => {
-            console.log("=== RAW SEARCH RESPONSE FROM SERVER ===");
-            console.log(data);                                 // ← print the whole thing
-            console.log("JSON string version:", JSON.stringify(data, null, 2));
-
-            const results = document.getElementById("searchResults");
-            results.innerHTML = "";
-            const songs = data?.data?.song?.list || data || [];
-            songs.forEach(song => {
-
-                const songName = song.songname || song.name || "Unknown Title";
-                const songMid = song.mid;
-                console.log(song.mid);
-                const artists = song.singer
-                    ? song.singer.map(s => s.name).join(", ")
-                    : "Unknown Artist";
-
-                const li = document.createElement("li");
-                li.textContent = `${songName} - ${artists}`;
-
-                const btn = document.createElement("button");
-                btn.textContent = "Add";
-
-                btn.addEventListener("click", () => {
-                    fetch(`${API_BASE}/getMusicPlay?songmid=${songMid}`)
-                        .then(response => {
-                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                            return response.json();
-                        })
-                        .then(json => {
-                            // Adjust this line to match your actual JSON structure
-                            const playUrl = json.data;
-                            socket.emit("addSong", {
-                                songmid: songMid,
-                                trackName: songName,
-                                artistName: artists,
-                                previewUrl: playUrl
-                            });
-                        })
-                        .catch(err => {
-                            console.error("Fetch failed for", songMid, err);
-                            if (typeof callback === 'function') {
-                                callback(null);
-                            }
-                        });
-                });
-
-                li.appendChild(btn);
-                results.appendChild(li);
-            });
-        });
-}
-
-function addSong(song) { if (song.previewUrl) { socket.emit("addSong", song); } }
-
-// --- Load current song into audio ---
-function loadCurrentSong() {
-    if (!playlist[currentIndex]?.previewUrl) {
-        audio.src = "";
-        return;
-    }
-    audio.src = playlist[currentIndex].previewUrl;
-    audio.load();
-}
-
-// --- Play/pause ---
-function playSong() { if (playlist.length === 0) return; socket.emit("play", audio.currentTime); }
-function pauseSong() { socket.emit("pause", audio.currentTime); }
-
-// --- Handle audio end ---
 audio.onended = () => {
-    if (playlist.length === 0) return;
-    const nextIndex = mode === "ordered"
-        ? (currentIndex + 1) % playlist.length
-        : Math.floor(Math.random() * playlist.length);
-    socket.emit("next", nextIndex);
+  isPlaying = false;
+  updatePlayPauseUI();
+
+  // Auto-advance to next song
+  if (playlist.length > 0) {
+    let nextIdx = currentIndex + 1;
+    if (nextIdx >= playlist.length) nextIdx = 0;
+    socket.emit("next", nextIdx);
+  }
 };
 
-// On first real user interaction (click anywhere or play button)
-document.addEventListener('click', function firstGesture() {
-    hasUserGestured = true;
-    document.getElementById('activation-overlay').classList.remove('show');
-    document.removeEventListener('click', firstGesture);
-    socket.emit("resync");
-}, {once: true});
+// DOM elements
+const playlistUl = document.getElementById("playlist");
+const usersUl = document.getElementById("usersList");
+const searchResults = document.getElementById("searchResults");
+const currentSongEl = document.getElementById("currentSong");
+const currentArtistEl = document.getElementById("currentArtist");
+const currentTimeEl = document.getElementById("currentTime");
+const durationEl = document.getElementById("duration");
+const progressBar = document.getElementById("progressBar");
+const playPauseBtn = document.getElementById("playPauseBtn");
+const playPauseIcon = document.getElementById("playPauseIcon");
+const usernameInputOverlay = document.getElementById("usernameInputOverlay");
+const joinBtn = document.getElementById("joinBtn");
 
-document.addEventListener('touchstart', function firstGesture() {
-    hasUserGestured = true;
-    document.getElementById('activation-overlay').classList.remove('show');
-    document.removeEventListener('click', firstGesture);
-    socket.emit("resync");
-}, {once: true});
+// ── Socket events ───────────────────────────────────────
 
-document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("usernameInput").focus();
+socket.on("syncState", (state) => {
+  playlist = state.playlist || [];
+  currentIndex = state.currentIndex ?? 0;
+  isPlaying = state.isPlaying || false;
+
+  renderPlaylist();
+  renderUsers(state.users || []);
+  loadCurrentSong();
+  updatePlayPauseUI();
 });
 
-// --- Socket events ---
+socket.on("usersList", (users) => {
+  renderUsers(users);
+});
+
 socket.on("updatePlaylist", (updated) => {
-    const currentSongId = playlist[currentIndex]?.trackId;
-    playlist = updated;
-    renderPlaylist();
-
-    const newIndex = playlist.findIndex(s => s.trackId === currentSongId);
-    currentIndex = newIndex !== -1 ? newIndex : 0;
-
-    loadCurrentSong();
-    if (!audio.paused) audio.play().catch(() => {});
+  playlist = updated;
+  renderPlaylist();
+  loadCurrentSong();
 });
 
 socket.on("play", (time) => {
-    audio.currentTime = time;
-    audio.play().catch(() => {});
+  audio.currentTime = time;
+  audio.play().catch(() => {});
+  isPlaying = true;
+  updatePlayPauseUI();
 });
 
 socket.on("pause", (time) => {
-    audio.currentTime = time;
-    audio.pause();
+  audio.currentTime = time;
+  audio.pause();
+  isPlaying = false;
+  updatePlayPauseUI();
 });
 
 socket.on("next", (index) => {
-    if (playlist.length === 0) return;
-    currentIndex = index;
-    loadCurrentSong();
-    audio.play().catch(() => {});
+  currentIndex = index;
+  loadCurrentSong();
+  if (isPlaying) audio.play().catch(() => {});
 });
 
-socket.on("updateMode", (newMode) => {
-    mode = newMode;
-});
+// ── Render functions ────────────────────────────────────
 
-// Receive the full list of users
-socket.on("usersList", (users) => {
-    renderUsers(users);
-});
+function renderPlaylist() {
+  playlistUl.innerHTML = "";
+  playlist.forEach((song, i) => {
+    const li = document.createElement("li");
+    li.dataset.index = i;
+    li.innerHTML = `
+      <i class="fas fa-grip-vertical drag-handle"></i>
+      <div class="info">
+        <div class="title">${song.trackName || "Unknown"}</div>
+        <div class="artist">${song.artistName || ""}</div>
+      </div>
+      <span class="duration">${formatTime(song.duration || 0)}</span>
+      <button onclick="deleteSong(${i})"><i class="fas fa-trash"></i></button>
+    `;
+    if (i === currentIndex) li.classList.add("playing");
+    playlistUl.appendChild(li);
+  });
 
-// When a new user joins
-socket.on("userJoined", (user) => {
-    console.log(`${user.username} joined`);
-    // The full list will come via usersList anyway
-});
+  new Sortable(playlistUl, {
+    animation: 150,
+    handle: ".drag-handle",
+    ghostClass: "dragging",
+    onEnd: (evt) => {
+      const { oldIndex, newIndex } = evt;
+      if (oldIndex === newIndex) return;
+      socket.emit("moveSong", { from: oldIndex, to: newIndex });
+    }
+  });
+}
 
-// When someone leaves
-socket.on("userLeft", (user) => {
-    console.log(`${user.username} left`);
+function renderUsers(users) {
+  usersUl.innerHTML = "";
+  if (users.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "No one here yet...";
+    li.style.color = "#777";
+    usersUl.appendChild(li);
+    return;
+  }
+
+  users.forEach(u => {
+    const li = document.createElement("li");
+    const isYou = u.id === socket.id;
+    li.textContent = u.username + (isYou ? " (you)" : "");
+    if (isYou) li.style.fontWeight = "600";
+    usersUl.appendChild(li);
+  });
+}
+
+function updatePlayPauseUI() {
+  if (!playPauseIcon) return;
+
+  if (isPlaying) {
+    playPauseIcon.className = "fas fa-pause";
+    playPauseBtn.title = "Pause";
+  } else {
+    playPauseIcon.className = "fas fa-play";
+    playPauseBtn.title = "Play";
+  }
+}
+
+function loadCurrentSong() {
+  if (!playlist[currentIndex]?.previewUrl) {
+    audio.src = "";
+    currentSongEl.textContent = "No song selected";
+    currentArtistEl.textContent = "";
+    updatePlayPauseUI();
+    return;
+  }
+
+  const song = playlist[currentIndex];
+  audio.src = song.previewUrl;
+  audio.load();
+
+  currentSongEl.textContent = song.trackName || "Unknown";
+  currentArtistEl.textContent = song.artistName || "";
+
+  audio.onloadedmetadata = () => {
+    durationEl.textContent = formatTime(audio.duration || 0);
+    progressBar.max = audio.duration || 100;
+  };
+
+  audio.ontimeupdate = () => {
+    if (!audio.duration) return;
+    const pct = (audio.currentTime / audio.duration) * 100;
+    progressBar.value = audio.currentTime;
+    currentTimeEl.textContent = formatTime(audio.currentTime);
+  };
+
+  if (isPlaying) audio.play().catch(() => {});
+}
+
+// ── Controls ────────────────────────────────────────────
+
+function searchSong() {
+  const query = document.getElementById("searchInput").value.trim();
+  if (!query) return;
+
+  fetch(`${API_BASE}/search?keyword=${encodeURIComponent(query)}`)
+    .then(res => res.json())
+    .then(data => {
+      searchResults.innerHTML = "";
+      const songs = data?.data?.song?.list || [];
+      if (songs.length === 0) {
+        searchResults.innerHTML = "<p>No results</p>";
+      }
+
+      songs.forEach(s => {
+        const name = s.songname || "Unknown";
+        const mid = s.mid;
+        const artists = s.singer?.map(a => a.name).join(", ") || "";
+
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <span>${name} – ${artists}</span>
+          <button onclick="addSongFromSearch('${mid}', '${name.replace(/'/g,"\\'")}', '${artists.replace(/'/g,"\\'")}')">Add</button>
+        `;
+        searchResults.appendChild(li);
+      });
+
+      searchResults.classList.add("show");
+    })
+    .catch(err => console.error(err));
+}
+
+function addSongFromSearch(mid, name, artists) {
+  fetch(`${API_BASE}/getMusicPlay?songmid=${mid}`)
+    .then(r => r.json())
+    .then(json => {
+      const url = json.data || "";
+      if (url) {
+        socket.emit("addSong", {
+          songmid: mid,
+          trackName: name,
+          artistName: artists,
+          previewUrl: url,
+          duration: 0
+        });
+      }
+    })
+    .catch(err => console.error("Add failed", err));
+
+  searchResults.classList.remove("show");
+  document.getElementById("searchInput").value = "";
+}
+
+function deleteSong(index) {
+  socket.emit("deleteSong", index);
+}
+
+function togglePlayPause() {
+  if (playlist.length === 0) return;
+
+  if (isPlaying) {
+    // Currently playing → pause
+    socket.emit("pause", audio.currentTime || 0);
+  } else {
+    // Paused or stopped → play
+    socket.emit("play", audio.currentTime || 0);
+  }
+}
+
+function nextSong() {
+  if (playlist.length === 0) return;
+  let nextIdx = currentIndex + 1;
+  if (nextIdx >= playlist.length) nextIdx = 0;
+  socket.emit("next", nextIdx);
+}
+
+function prevSong() {
+  if (playlist.length === 0) return;
+  let prevIdx = currentIndex - 1;
+  if (prevIdx < 0) prevIdx = playlist.length - 1;
+  socket.emit("next", prevIdx);
+}
+
+// ── Utils ───────────────────────────────────────────────
+
+function formatTime(seconds) {
+  if (!seconds) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function handleJoinFromOverlay() {
+  const name = usernameInputOverlay.value.trim();
+
+  if (!name) {
+    alert("Please enter a username");
+    return;
+  }
+
+  // Send username to server
+  socket.emit("setUsername", name);
+
+  // Mark gesture as done → hide overlay
+  hasUserGestured = true;
+  document.getElementById("activation-overlay").classList.remove("show");
+
+  // Optional: focus search input after join
+  document.getElementById("searchInput")?.focus();
+}
+
+// ── Gesture unlock ──────────────────────────────────────
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("activation-overlay").classList.add("show");
 });
