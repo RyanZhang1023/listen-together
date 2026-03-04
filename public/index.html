@@ -6,6 +6,14 @@
 </head>
 <body>
     <h2>🎵 SYNCED</h2>
+    <div id="username-setup" style="margin: 20px 0; text-align: center;">
+        <h3>Welcome! What's your name?</h3>
+        <input type="text" id="usernameInput" placeholder="Your name..." maxlength="20" />
+        <button onclick="setUsername()">Join</button>
+    </div>
+
+    <h3>Connected users</h3>
+    <ul id="usersList" style="list-style: none; padding: 0;"></ul>
 
     <input type="text" id="searchInput" placeholder="Search song..." />
     <button onclick="searchSong()">Search</button>

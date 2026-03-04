@@ -12,6 +12,8 @@ const app = express();
 app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server);
+// Store connected users: { socket.id → username }
+const connectedUsers = new Map();
 
 app.use(express.static("public"));
 
@@ -65,6 +67,15 @@ app.get("/api/songurl", async (req, res) => {
 io.on("connection", (socket) => {
     console.log("User connected");
 
+    // Send current user list to the newly connected client
+    function broadcastUserList() {
+        const users = Array.from(connectedUsers.entries()).map(([id, username]) => ({
+            id,
+            username
+        }));
+        io.emit("usersList", users);
+    }
+
     // Send current state to new user
     socket.emit("syncState", {
         playlist,
@@ -73,6 +84,9 @@ io.on("connection", (socket) => {
         currentTime,
         mode
     });
+
+    // Also send the list immediately on connection (before username is set)
+    broadcastUserList();  // optional — shows empty or partial list
 
     socket.on("resync", () => {
         console.log(`Client ${socket.id} requested resync`);
@@ -134,6 +148,36 @@ io.on("connection", (socket) => {
         }
 
         io.emit("next", currentIndex);
+    });
+
+    // When client sends their username
+    socket.on("setUsername", (name) => {
+        // Optional: sanitize / limit length
+        const safeName = name.trim().substring(0, 20) || "Anonymous";
+
+        connectedUsers.set(socket.id, safeName);
+
+        // Tell everyone someone joined
+        io.emit("userJoined", { id: socket.id, username: safeName });
+
+        // Send updated list to all
+        broadcastUserList();
+
+        console.log(`${safeName} (${socket.id}) joined`);
+    });
+
+    // Clean up when user disconnects
+    socket.on("disconnect", () => {
+        if (connectedUsers.has(socket.id)) {
+            const name = connectedUsers.get(socket.id);
+            connectedUsers.delete(socket.id);
+
+            io.emit("userLeft", { id: socket.id, username: name });
+            broadcastUserList();
+
+            console.log(`${name} (${socket.id}) left`);
+        }
+        console.log("User disconnected");
     });
 
     socket.on("updateTime", (time) => {

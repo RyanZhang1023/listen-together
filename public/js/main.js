@@ -6,6 +6,43 @@ let isPlaying = false;
 let currentIndex = 0;
 let mode = "ordered"; // synced with server
 let hasUserGestured = false;
+let username = null;
+
+// Called when user clicks "Join"
+function setUsername() {
+    const input = document.getElementById("usernameInput");
+    const name = input.value.trim();
+
+    if (!name) {
+        alert("Please enter a name");
+        return;
+    }
+
+    username = name;
+    socket.emit("setUsername", name);
+
+    // Hide setup UI
+    document.getElementById("username-setup").style.display = "none";
+
+    // Optional: show overlay only after name is set
+    // (you can move the overlay logic here if you want)
+}
+
+// Render connected users list
+function renderUsers(users) {
+    const ul = document.getElementById("usersList");
+    ul.innerHTML = "";
+    users.forEach(user => {
+        const li = document.createElement("li");
+        li.textContent = user.username;
+        // Optional: highlight yourself
+        if (user.id === socket.id) {
+            li.style.fontWeight = "bold";
+            li.textContent += " (you)";
+        }
+        ul.appendChild(li);
+    });
+}
 
 socket.on("syncState", (state) => {
     console.log("Received syncState →", state);
@@ -151,6 +188,10 @@ document.addEventListener('touchstart', function firstGesture() {
     socket.emit("resync");
 }, {once: true});
 
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("usernameInput").focus();
+});
+
 // --- Socket events ---
 socket.on("updatePlaylist", (updated) => {
     const currentSongId = playlist[currentIndex]?.trackId;
@@ -183,4 +224,20 @@ socket.on("next", (index) => {
 
 socket.on("updateMode", (newMode) => {
     mode = newMode;
+});
+
+// Receive the full list of users
+socket.on("usersList", (users) => {
+    renderUsers(users);
+});
+
+// When a new user joins
+socket.on("userJoined", (user) => {
+    console.log(`${user.username} joined`);
+    // The full list will come via usersList anyway
+});
+
+// When someone leaves
+socket.on("userLeft", (user) => {
+    console.log(`${user.username} left`);
 });
